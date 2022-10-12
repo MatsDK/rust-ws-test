@@ -25,20 +25,27 @@ impl Handler for Client {
 async fn main() -> std::result::Result<(), Box<dyn Error>> {
     let mut stdin = io::BufReader::new(io::stdin()).lines();
 
+    let (tx, rx) = std::sync::mpsc::channel::<Sender>();
+
     tokio::spawn(async move {
         if let Err(error) = connect("ws://127.0.0.1:3012", |out| {
+            println!("called");
+            tx.send(out.clone()).expect("failed to send 'out'");
+
             Client { out }
         }) {
             println!("Failed to create WebSocket due to: {:?}", error);
         }
     });
 
+    let ws_sender = rx.recv().unwrap();
+
     loop {
         tokio::select! {
-             line = stdin.next_line() => {
+            line = stdin.next_line() => {
                 let line = line?.expect("stdin closed");
-                println!("{}", line);
-             }
+                ws_sender.send(line).unwrap();
+            }
         }
     }
 }
