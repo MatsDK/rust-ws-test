@@ -5,9 +5,10 @@ mod event;
 use clap::Parser;
 use event::WsEvents;
 use std::fs;
+use std::path::Path;
 use ws::{listen, Handler, Message, Sender};
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[command()]
 struct Args {
     #[arg(long)]
@@ -19,7 +20,7 @@ struct Args {
 
 struct Server {
     out: Sender,
-    shares: String,
+    shares_path: String,
 }
 
 impl Server {
@@ -27,31 +28,39 @@ impl Server {
         let event = WsEvents::try_from(&bin[..]).unwrap();
 
         match event {
-            WsEvents::SendMessage { text, .. } => {
-                println!("received message: {}", String::from_utf8(text).unwrap());
-                self.out.send("got message").unwrap();
+            WsEvents::CreateShare { name, .. } => {
+                let name = String::from_utf8(name).unwrap();
+                let path = Path::new(&self.shares_path).join(name);
+
+                if let Err(e) = fs::File::create(&path) {
+                    println!("Failed to create file due to: {}", e);
+                } else {
+                    self.out
+                        .send(get_shares(self.shares_path.clone()).as_bytes())
+                        .unwrap();
+                }
             }
             WsEvents::GetShares => {
-                let dir = fs::read_dir(self.shares.clone()).unwrap();
-
-                let mut out = String::new();
-
-                for path in dir {
-                    let path = path.unwrap().path();
-                    if !path.is_dir() {
-                        continue;
-                    }
-
-                    let path_str = path.to_str().unwrap();
-
-                    out.push_str(path_str);
-                    out.push('\n');
-                }
-
-                self.out.send(out.as_bytes()).unwrap();
+                self.out
+                    .send(get_shares(self.shares_path.clone()).as_bytes())
+                    .unwrap();
             }
         }
     }
+}
+
+fn get_shares(shares_path: String) -> String {
+    let mut out = String::new();
+
+    let dir = fs::read_dir(shares_path).unwrap();
+    for path in dir {
+        let path = path.unwrap().path().display().to_string();
+
+        out.push_str(&path);
+        out.push('\n');
+    }
+
+    out
 }
 
 impl Handler for Server {
@@ -73,10 +82,9 @@ impl Handler for Server {
 
 fn main() {
     let args = Args::parse();
-
     if let Err(error) = listen(args.host, |out| Server {
         out,
-        shares: args.shares.clone(),
+        shares_path: args.shares.clone(),
     }) {
         println!("Failed to create WebSocket due to {:?}", error);
     }

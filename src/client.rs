@@ -30,7 +30,7 @@ impl Handler for Client {
     }
 
     fn on_message(&mut self, msg: Message) -> Result<()> {
-        println!("Client got message '{}'. ", msg);
+        println!("SHARES:\n{}", msg);
         Ok(())
     }
 }
@@ -55,16 +55,22 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
 
     let ws_sender = rx.recv().unwrap();
 
+    let msg = WsEvents::GetShares;
+    ws_sender.send(msg.to_bytes().unwrap()).unwrap();
+
     loop {
         tokio::select! {
             line = stdin.next_line() => {
                 let line = line?.expect("stdin closed");
-                let msg = WsEvents::SendMessage {
+                let msg = WsEvents::CreateShare {
                     len: line.len() as u8,
-                    text: line.as_bytes().to_vec()
+                    name: line.as_bytes().to_vec()
                 };
 
                 ws_sender.send(msg.to_bytes().unwrap()).unwrap();
+
+                let get_shares_msg = WsEvents::GetShares;
+                ws_sender.send(get_shares_msg.to_bytes().unwrap()).unwrap();
             }
         }
     }

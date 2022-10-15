@@ -4,10 +4,10 @@ use deku::prelude::*;
 #[deku(type = "u8")]
 pub enum WsEvents {
     #[deku(id = "0")]
-    SendMessage {
+    CreateShare {
         len: u8,
         #[deku(count = "len", endian = "big")]
-        text: Vec<u8>,
+        name: Vec<u8>,
     },
     #[deku(id = "1")]
     GetShares,
