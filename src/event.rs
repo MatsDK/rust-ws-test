@@ -9,4 +9,6 @@ pub enum WsEvents {
         #[deku(count = "len", endian = "big")]
         text: Vec<u8>,
     },
+    #[deku(id = "1")]
+    GetShares,
 }

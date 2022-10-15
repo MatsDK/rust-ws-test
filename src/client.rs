@@ -3,6 +3,7 @@ extern crate ws;
 
 mod event;
 
+use clap::Parser;
 use deku::prelude::*;
 use std::error::Error;
 use std::sync::mpsc;
@@ -10,6 +11,13 @@ use tokio::io::{self, AsyncBufReadExt};
 use ws::{connect, Handler, Handshake, Message, Result, Sender};
 
 use event::WsEvents;
+
+#[derive(Parser, Debug)]
+#[command()]
+struct Args {
+    #[arg(long)]
+    host: String,
+}
 
 struct Client {
     out: Sender,
@@ -29,12 +37,14 @@ impl Handler for Client {
 
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn Error>> {
+    let args = Args::parse();
+
     let mut stdin = io::BufReader::new(io::stdin()).lines();
 
     let (tx, rx) = mpsc::channel();
 
     tokio::spawn(async move {
-        if let Err(error) = connect("ws://127.0.0.1:3012", |out| {
+        if let Err(error) = connect(args.host, |out| {
             tx.send(out.clone()).expect("failed to send 'out'");
 
             Client { out }
